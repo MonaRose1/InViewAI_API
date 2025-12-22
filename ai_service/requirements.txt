@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+numpy
+opencv-python
+onnxruntime
+mediapipe
+python-dotenv
+pydantic
+websockets
+openai

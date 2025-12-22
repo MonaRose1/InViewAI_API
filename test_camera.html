@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interviewer - Camera Test</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background-color: var(--card-bg);
+            border: 1px solid var(--text-secondary);
+        }
+
+        .status-badge.connected {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .status-badge.disconnected {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .video-container {
+            background-color: var(--card-bg);
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+
+        .stats-container {
+            background-color: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .stat-group h3 {
+            margin: 0 0 0.75rem 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            color: #bef264;
+            overflow-x: auto;
+            margin: 0;
+            flex: 1;
+        }
+
+        .controls {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .btn-primary { background-color: var(--accent); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+
+        /* Hidden canvas for frame capture */
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>AI Interviewer Debug Console</h1>
+    <div id="connectionStatus" class="status-badge disconnected">Disconnected</div>
+</header>
+
+<main>
+    <div class="video-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="captureCanvas"></canvas>
+    </div>
+
+    <div class="stats-container">
+        
+        <div class="stat-group">
+            <h3>Gaze & Orientation</h3>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Pitch</div>
+                    <div class="metric-value" id="val-pitch">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Yaw</div>
+                    <div class="metric-value" id="val-yaw">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-group">
+            <h3>Behavior Metrics</h3>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Emotion</div>
+                    <div class="metric-value" id="val-emotion" style="color: var(--accent)">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Engagement</div>
+                    <div class="metric-value" id="val-engagement">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Blink Rate</div>
+                    <div class="metric-value" id="val-blink">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Face Detected</div>
+                    <div class="metric-value" id="val-face">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-group" style="flex:1; display:flex; flex-direction:column;">
+            <h3>Raw Response</h3>
+            <pre id="raw-json">Waiting for data...</pre>
+        </div>
+
+        <div class="controls">
+            <button id="btnStart" class="btn-primary" onclick="startSystem()">Start Camera & Analysis</button>
+            <button id="btnStop" class="btn-danger" onclick="stopSystem()">Stop</button>
+        </div>
+    </div>
+</main>
+
+<script>
+    const PORT = 8003; // IMPORTANT: Must match your running server port
+    const WS_URL = `ws://localhost:${PORT}/ws/analyze/camera_debug_session`;
+    
+    let ws = null;
+    let videoStream = null;
+    let captureInterval = null;
+    const FPS = 10; // Send 10 frames per second
+
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('connectionStatus');
+    const jsonEl = document.getElementById('raw-json');
+
+    // UI Updaters
+    function updateUI(data) {
+        if (!data) return;
+        
+        // Gaze
+        if (data.gaze_analysis) {
+            document.getElementById('val-pitch').textContent = data.gaze_analysis.pitch.toFixed(1) + '°';
+            document.getElementById('val-yaw').textContent = data.gaze_analysis.yaw.toFixed(1) + '°';
+        }
+
+        // Behavior
+        if (data.behavior_analysis) {
+            document.getElementById('val-emotion').textContent = data.behavior_analysis.dominant_emotion || '--';
+            
+            const engagement = (data.behavior_analysis.engagement_score * 100).toFixed(0);
+            document.getElementById('val-engagement').textContent = engagement + '%';
+            
+            const blink = data.behavior_analysis.blink_rate ? data.behavior_analysis.blink_rate.toFixed(1) : '0';
+            document.getElementById('val-blink').textContent = blink + ' /min';
+        }
+
+        // Face
+        const faceDetected = data.face_detected;
+        const faceEl = document.getElementById('val-face');
+        faceEl.textContent = faceDetected ? "YES" : "NO";
+        faceEl.style.color = faceDetected ? "var(--success)" : "var(--danger)";
+
+        // Raw
+        jsonEl.textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function startSystem() {
+        try {
+            // 1. Start Camera
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = videoStream;
+            
+            // 2. Connect WS
+            connectWebSocket();
+
+        } catch (err) {
+            console.error("Error starting system:", err);
+            alert("Could not access camera. Please allow permissions.");
+        }
+    }
+
+    function stopSystem() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+            video.srcObject = null;
+        }
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        if (captureInterval) {
+            clearInterval(captureInterval);
+            captureInterval = null;
+        }
+        statusEl.textContent = "Disconnected";
+        statusEl.className = "status-badge disconnected";
+    }
+
+    function connectWebSocket() {
+        ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+            statusEl.textContent = "Connected";
+            statusEl.className = "status-badge connected";
+            console.log("WS Connected");
+            startSendingFrames();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                updateUI(data);
+            } catch (e) {
+                console.error("Parse error", e);
+            }
+        };
+
+        ws.onclose = () => {
+            statusEl.textContent = "Disconnected";
+            statusEl.className = "status-badge disconnected";
+            stopCapture();
+        };
+
+        ws.onerror = (err) => {
+            console.error("WS Error", err);
+            statusEl.textContent = "Error";
+            statusEl.className = "status-badge disconnected";
+        };
+    }
+
+    function startSendingFrames() {
+        if (captureInterval) clearInterval(captureInterval);
+        
+        // Match canvas size to video
+        canvas.width = 640; 
+        canvas.height = 480;
+
+        captureInterval = setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            
+            // Draw video to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 0.7 quality to save bandwidth
+            
+            // Send
+            ws.send(JSON.stringify({
+                type: "analyze_frame",
+                image_data: dataUrl
+            }));
+
+        }, 1000 / FPS);
+    }
+
+    function stopCapture() {
+        if (captureInterval) clearInterval(captureInterval);
+    }
+</script>
+</body>
+</html>
